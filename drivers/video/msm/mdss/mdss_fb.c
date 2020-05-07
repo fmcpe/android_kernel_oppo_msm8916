@@ -1611,19 +1611,6 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 			complete(&mfd->no_update.comp);
 
 			mfd->op_enable = false;
-#ifndef VENDOR_EDIT
-/* Xiaori.Yuan@Mobile Phone Software Dept.Driver, 2015/07/03  Modify for 15020 kgsl fence time out */
-			mutex_lock(&mfd->bl_lock);
-			if (mdss_panel_is_power_off(req_power_state)) {
-				/* Stop Display thread */
-				if (mfd->disp_thread)
-					mdss_fb_stop_disp_thread(mfd);
-				mdss_fb_set_backlight(mfd, 0);
-				mfd->bl_updated = 0;
-			}
-			mfd->panel_power_state = req_power_state;
-			mutex_unlock(&mfd->bl_lock);
-#else /*VENDOR_EDIT*/
 			if (mdss_panel_is_power_off(req_power_state)) {
 				/* Stop Display thread */
 				if (mfd->disp_thread)
@@ -1634,7 +1621,6 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 				mutex_unlock(&mfd->bl_lock);
 			}
 			mfd->panel_power_state = req_power_state;
-#endif /*VENDOR_EDIT*/
 
 			ret = mfd->mdp.off_fnc(mfd);
 			if (ret)
@@ -2444,7 +2430,7 @@ static int mdss_fb_release_all(struct fb_info *info, bool release_all)
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 	struct mdss_fb_proc_info *pinfo = NULL, *temp_pinfo = NULL;
 	struct mdss_fb_proc_info *proc_info = NULL;
-	int ret = 0;
+	int ret = 0, ad_ret = 0;
 	int pid = current->tgid;
 	bool unknown_pid = true, release_needed = false;
 	struct task_struct *task = current->group_leader;
@@ -2562,8 +2548,12 @@ static int mdss_fb_release_all(struct fb_info *info, bool release_all)
 				    mfd->index, task->comm, current->tgid, pid);
 		}
 
-		if (mfd->fb_ion_handle)
-			mdss_fb_free_fb_ion_memory(mfd);
+		if (mfd->mdp.ad_shutdown_cleanup) {
+			ad_ret = (*mfd->mdp.ad_shutdown_cleanup)(mfd);
+			if (ad_ret)
+				pr_err("AD shutdown cleanup failed ret = %d\n",
+									ad_ret);
+		}
 
 		ret = mdss_fb_blank_sub(FB_BLANK_POWERDOWN, info,
 			mfd->op_enable);
@@ -2572,6 +2562,10 @@ static int mdss_fb_release_all(struct fb_info *info, bool release_all)
 			      mfd->index, ret, task->comm, current->tgid, pid);
 			return ret;
 		}
+
+		if (mfd->fb_ion_handle)
+			mdss_fb_free_fb_ion_memory(mfd);
+
 		atomic_set(&mfd->ioctl_ref_cnt, 0);
 	}
 
@@ -3119,26 +3113,16 @@ static int mdss_fb_check_var(struct fb_var_screeninfo *var,
 		return -EINVAL;
 
 	if (mfd->panel_info) {
-		struct mdss_panel_info *panel_info;
 		int rc;
-		panel_info = kzalloc(sizeof(struct mdss_panel_info),
-				GFP_KERNEL);
-		if (!panel_info) {
-			pr_err("panel info is NULL\n");
-			return -ENOMEM;
-		}
 
-		memcpy(panel_info, mfd->panel_info,
-				sizeof(struct mdss_panel_info));
-		mdss_fb_var_to_panelinfo(var, panel_info);
+		memcpy(&mfd->reconfig_panel_info, mfd->panel_info,
+				sizeof(mfd->reconfig_panel_info));
+		mdss_fb_var_to_panelinfo(var, &mfd->reconfig_panel_info);
 		rc = mdss_fb_send_panel_event(mfd, MDSS_EVENT_CHECK_PARAMS,
-			panel_info);
-		if (IS_ERR_VALUE(rc)) {
-			kfree(panel_info);
+			&mfd->reconfig_panel_info);
+		if (IS_ERR_VALUE(rc))
 			return rc;
-		}
 		mfd->panel_reconfig = rc;
-		kfree(panel_info);
 	}
 
 	return 0;

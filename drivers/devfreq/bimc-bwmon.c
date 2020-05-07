@@ -66,6 +66,7 @@ static void mon_enable(struct bwmon *m)
 static void mon_disable(struct bwmon *m)
 {
 	writel_relaxed(0x0, MON_EN(m));
+	mb();
 }
 
 static void mon_clear(struct bwmon *m)
