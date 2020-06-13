@@ -402,7 +402,7 @@ int opchg_get_prop_batt_capacity(struct opchg_charger *chip)
 {
 	int soc;
 
-	if(is_project(OPPO_15109)){
+	if(is_project(OPPO_15109) || is_project(OPPO_15399)){
 		soc = opchg_get_prop_batt_capacity_from_bms(chip);
 	} else {
 		if (qpnp_batt_gauge && qpnp_batt_gauge->get_battery_soc){
@@ -423,7 +423,9 @@ int opchg_get_prop_batt_capacity(struct opchg_charger *chip)
 }
 
 int opchg_get_prop_current_now(struct opchg_charger *chip)
-{
+{	
+        int rc = 0;
+	struct qpnp_vadc_result results;
 	int chg_current = 0;
 
 	if(is_project(OPPO_15109)){
@@ -431,6 +433,17 @@ int opchg_get_prop_current_now(struct opchg_charger *chip)
 			chg_current = 0;
 		} else {
 			chg_current = -450;
+		}
+	} else if(is_project(OPPO_15399)){
+		if(!chip->chg_present){
+			chg_current = 0;
+		} else {
+			rc = qpnp_vadc_read(chip->vadc_dev, P_MUX2_1_3, &results);
+			if (rc) {
+				pr_err("Unable to read iadc rc=%d\n", rc);
+				chg_current = 0;
+			}
+			chg_current = -(int)results.physical/1000;
 		}
 	} else {
 		if (qpnp_batt_gauge && qpnp_batt_gauge->get_average_current)

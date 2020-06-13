@@ -932,7 +932,7 @@ void opchg_check_charging_time(struct opchg_charger *chip)
 {
     if (is_project(OPPO_14005) || is_project(OPPO_15011) || is_project(OPPO_15018) ||
 		is_project(OPPO_15022) || is_project(OPPO_15109)||
-		(chip->driver_id == OPCHG_BQ24188_ID)|| (chip->driver_id == OPCHG_BQ24157_ID))
+		(chip->driver_id == OPCHG_BQ24188_ID)|| (chip->driver_id == OPCHG_BQ24157_ID) || is_project(OPPO_15399))
     {
         if (chip->batt_pre_full && chip->batt_full) {
             chip->charging_total_time = 0;
@@ -1040,6 +1040,9 @@ void opchg_check_lcd_onoff(struct opchg_charger *chip)
 		{
 			opchg_config_input_chg_current(chip, INPUT_CURRENT_LCD, LCD_ON_CHARGING_INPUT_CURRENT_15109);
 		}
+                else if (is_project(OPPO_15399)) {
+                        opchg_config_input_chg_current(chip,INPUT_CURRENT_LCD, LCD_ON_CHARGING_INPUT_CURRENT_15399);
+                }
 		else if (is_project(OPPO_15018) || is_project(OPPO_15022)) {
 			opchg_config_input_chg_current(chip, INPUT_CURRENT_LCD, LCD_ON_CHARGING_INPUT_CURRENT_15018);
 		}
@@ -1063,6 +1066,9 @@ void opchg_check_lcd_onoff(struct opchg_charger *chip)
 		if (is_project(OPPO_15109))
 		{
 			opchg_config_input_chg_current(chip, INPUT_CURRENT_LCD, LCD_OFF_CHARGING_INPUT_CURRENT_15109);
+		}
+		else if (is_project(OPPO_15399)) {
+			opchg_config_input_chg_current(chip, INPUT_CURRENT_LCD, LCD_OFF_CHARGING_INPUT_CURRENT_15399);
 		}
 		else if (is_project(OPPO_15018) || is_project(OPPO_15022)) {
 			opchg_config_input_chg_current(chip, INPUT_CURRENT_LCD, LCD_OFF_CHARGING_INPUT_CURRENT_15018);
@@ -1519,7 +1525,7 @@ void opchg_set_status(struct opchg_charger *chip,bool input_curr_set)
     #ifdef OPPO_USE_FAST_CHARGER
     /* set input charging current limit */
     if(is_project(OPPO_14005) || is_project(OPPO_15011) || is_project(OPPO_15018) ||
-		is_project(OPPO_15022) || is_project(OPPO_15109))
+		is_project(OPPO_15022) || is_project(OPPO_15109) || is_project(OPPO_15399) )
 	{
 	    if (chip->g_is_reset_changed) {
 	        opchg_set_reset_charger(chip, true);
@@ -1570,7 +1576,7 @@ void opchg_update_thread(struct work_struct *work)
     #ifdef OPPO_USE_TIMEOVER_BY_AP
 	if( is_project(OPPO_14005) || is_project(OPPO_15011) || is_project(OPPO_15018) ||
 		is_project(OPPO_15022) || is_project(OPPO_15109) ||
-		(chip->driver_id == OPCHG_BQ24188_ID)|| (chip->driver_id == OPCHG_BQ24157_ID))
+		(chip->driver_id == OPCHG_BQ24188_ID)|| (chip->driver_id == OPCHG_BQ24157_ID) || is_project(OPPO_15399))
 	{
 	opchg_check_charging_time(chip);
 	}
@@ -1583,12 +1589,12 @@ void opchg_update_thread(struct work_struct *work)
 	}
 
 	/* Add to avoid some status sync error when changer plugout */
-	if(is_project(OPPO_15109))
+/*	if(is_project(OPPO_15109) || is_project(OPPO_15399) )
 	{
 		// do noting
 	}
 	else
-	{
+	{ */
 		if (opchg_chip != NULL && the_chip != NULL && opchg_chip->chg_present == true &&
 			opchg_get_charger_inout() == 0)
 		{
@@ -1602,7 +1608,7 @@ void opchg_update_thread(struct work_struct *work)
 				bq24196_chg_uv(opchg_chip, 1);
 			}
 		}
-	}
+	//}
 
 	opchg_aicl_work(chip);
 #ifdef OPPO_USE_FAST_CHARGER
